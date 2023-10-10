@@ -3,21 +3,18 @@ version: '3.8'
 services:
 
   proxy:
-    image: nginx:1.24.0
+    image: nginx:1.31.10
     restart: always
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx-selfsigned.crt:/etc/ssl/certs/nginx-selfsigned.crt:ro
-      - ./nginx-selfsigned.key:/etc/ssl/private/nginx-selfsigned.key:ro
     depends_on:
       jatos:
         condition: service_healthy
     ports:
-      - 80:80
-      - 443:443
+      - 809:80
 
   jatos:
-    image: jatos/jatos:3.8.3
+    image: jatos/jatos:3.11.3
     restart: always
     ports:
       - 9000
@@ -33,13 +30,13 @@ services:
       start_period: 10s
     environment:
       JATOS_DB_URL: 'jdbc:mysql://db/jatos?characterEncoding=UTF-8&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC'
-      JATOS_DB_USERNAME: 'jatosuser'
-      JATOS_DB_PASSWORD: 'abc123'
+      JATOS_DB_USERNAME: ${JATOS_DB_USERNAME}
+      JATOS_DB_PASSWORD: ${JATOS_DB_PASSWORD}
       JATOS_DB_DRIVER: 'com.mysql.cj.jdbc.Driver'
-      JATOS_SECRET: 'my-secret-secret'
+      JATOS_SECRET: ${JATOS_SECRET}
     command:
       # If you're running multiple JATOS instances
-      - '-Djatos.multiNode=true'
+      #- '-Djatos.multiNode=true'
       # Get JATOS' logs to the stdout, e.g. for debugging
       #- '-Djatos.logs.appender=ASYNCSTDOUT'
     volumes:
@@ -58,9 +55,9 @@ services:
       retries: 30
     environment:
       MYSQL_DATABASE: 'jatos'
-      MYSQL_USER: 'jatosuser'
-      MYSQL_PASSWORD: 'abc123'
-      MYSQL_ROOT_PASSWORD: 'abc123'
+      MYSQL_USER: ${JATOS_DB_USERNAME}
+      MYSQL_PASSWORD: ${JATOS_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${ROOT_DB_PASSWORD}
     command:
       # Deactivate MySQL's binary log (https://www.jatos.org/JATOS-with-MySQL.html)
       #- '--skip-log-bin'
@@ -69,9 +66,8 @@ services:
       - SYS_NICE
     volumes:
       - jatos-db:/var/lib/mysql
-    ports:
-      - 3306:3306
-      
+
+
 volumes:
   jatos-data:
   jatos-logs:

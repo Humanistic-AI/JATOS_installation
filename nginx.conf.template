@@ -1,86 +1,75 @@
-user                    www-data;
-pid                     /run/nginx.pid;
-worker_processes        auto;
-worker_rlimit_nofile    65535;
+
 
 # Load modules
-include                 /etc/nginx/modules-enabled/*.conf;
+#include                 /etc/nginx/modules-enabled/*.conf;
 
-events {
-    multi_accept       on;
-    worker_connections 65535;
+
+
+#sendfile                on;
+#tcp_nopush              on;
+#client_max_body_size    500M;
+
+# MIME
+#include                 mime.types;
+#default_type            application/octet-stream;
+
+# Logging
+access_log              off;
+error_log               /var/log/nginx/error.log warn;
+#log_format main         '$time_iso8601 - $remote_addr↔ $upstream_addr [$proxy_add_x_forwarded_for $http_host] - $status "$request" - $body_bytes_sent - $request_time ';
+
+#proxy_buffering         off;
+#proxy_set_header        Host $http_host;
+#proxy_http_version      1.1;
+
+# Needed for websockets
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
 }
 
-http {
-    sendfile                on;
-    tcp_nopush              on;
-    client_max_body_size    500M;
+# Load configs
+#include /etc/nginx/conf.d/*.conf;
 
-    # MIME
-    include                 mime.types;
-    default_type            application/octet-stream;
+server {
+    listen              809;
+    server_name         ${SERVER_NAME};
+    keepalive_timeout   70;                
 
-    # Logging
-    access_log              off;
-    error_log               /var/log/nginx/error.log warn;
-    log_format main         '$time_iso8601 - $remote_addr↔ $upstream_addr [$proxy_add_x_forwarded_for $http_host] - $status "$request" - $body_bytes_sent - $request_time ';
+    # Encryption
+    #ssl_certificate     /etc/ssl/certs/nginx-selfsigned.crt;
+    #ssl_certificate_key	/etc/ssl/private/nginx-selfsigned.key;
+    #ssl_protocols       TLSv1.2 TLSv1.3;
 
-    proxy_buffering         off;
-    proxy_set_header        Host $http_host;
-    proxy_http_version      1.1;
-
-    # Needed for websockets
-    map $http_upgrade $connection_upgrade {
-        default upgrade;
-        ''      close;
+    # WebSocket location (JATOS' group and batch channel and the test page)
+    location ~ "/(jatos/testWebSocket|publix/[a-z0-9-]+/(group/join|batch/open))" {
+        proxy_pass              http://jatos:9000;
+        proxy_http_version      1.1;
+        proxy_set_header        Upgrade $http_upgrade;
+        proxy_set_header        Connection $connection_upgrade;
+        proxy_connect_timeout   7d; # Keep open for 7 days even without any transmission
+        proxy_send_timeout      7d;
+        proxy_read_timeout      7d;
     }
 
-    # Load configs
-    include /etc/nginx/conf.d/*.conf;
+    # Restrict access to JATOS' GUI to local network 192.168.1.*
+    # location /jatos {
+    #     allow                   192.168.1.0/24;
+    #     deny                    all;
+    #     proxy_pass              http://jatos-backend;
+    #     proxy_connect_timeout   300;
+    #     proxy_send_timeout      300;
+    #     proxy_read_timeout      300;
+    #     send_timeout            300;
+    # }
 
-    upstream jatos-backend {
-        server jatos:9000;
-    }    
-
-    server {
-        listen              80;
-        server_name         ${SERVER_NAME}
-        keepalive_timeout   70;                
-
-        # Encryption
-        #ssl_certificate     /etc/ssl/certs/nginx-selfsigned.crt;
-        #ssl_certificate_key	/etc/ssl/private/nginx-selfsigned.key;
-        #ssl_protocols       TLSv1.2 TLSv1.3;
-
-        # WebSocket location (JATOS' group and batch channel and the test page)
-        location ~ "/(jatos/testWebSocket|publix/[a-z0-9-]+/(group/join|batch/open))" {
-            proxy_pass              http://jatos-backend;
-            proxy_http_version      1.1;
-            proxy_set_header        Upgrade $http_upgrade;
-            proxy_set_header        Connection $connection_upgrade;
-            proxy_connect_timeout   7d; # Keep open for 7 days even without any transmission
-            proxy_send_timeout      7d;
-            proxy_read_timeout      7d;
-        }
-
-        # Restrict access to JATOS' GUI to local network 192.168.1.*
-        # location /jatos {
-        #     allow                   192.168.1.0/24;
-        #     deny                    all;
-        #     proxy_pass              http://jatos-backend;
-        #     proxy_connect_timeout   300;
-        #     proxy_send_timeout      300;
-        #     proxy_read_timeout      300;
-        #     send_timeout            300;
-        # }
-
-        # All other traffic
-        location / {
-            proxy_pass              http://jatos-backend;
-            proxy_connect_timeout   300;
-            proxy_send_timeout      300;
-            proxy_read_timeout      300;
-            send_timeout            300;
-        }
+    # All other traffic
+    location / {
+        proxy_pass              http://jatos:9000;
+        proxy_connect_timeout   300;
+        proxy_send_timeout      300;
+        proxy_read_timeout      300;
+        send_timeout            300;
     }
 }
+

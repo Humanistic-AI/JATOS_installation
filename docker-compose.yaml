@@ -11,7 +11,7 @@ services:
     environment:
         SERVER_NAME: ${SERVER_NAME}
     ports:
-      - 809:80
+      - 809:809
 
   jatos:
     image: jatos/jatos:3.11.3
@@ -44,6 +44,7 @@ services:
       - jatos-data:/opt/jatos_data
       # Configure JATOS by binding a jatos.conf
       - ./jatos.conf:/opt/jatos/conf/jatos.conf:ro
+    container_name: jatos
 
   db:
     image: mysql:8.0.32-debian
